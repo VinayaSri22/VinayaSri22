@@ -1,0 +1,35 @@
+# -----------------------------------------------------------------------------
+# Curated content for your profile README.
+# Edit this file whenever you want. The dynamic sections (activity, timestamp)
+# are generated automatically by profile_updater.py — you don't touch those.
+# -----------------------------------------------------------------------------
+
+github_username: VinayaSri22
+
+# Shown in the header banner and intro.
+name: Vinaya Sri
+tagline: Software engineer • building things that update themselves
+
+# A short intro paragraph (supports plain text; keep it 1-3 sentences).
+about: >
+  Welcome to my corner of GitHub. This profile rebuilds itself on a schedule,
+  so what you see below is always fresh.
+
+# "Now" — what you're currently up to. Edit freely.
+now:
+  working_on: exploring self-updating developer tooling
+  learning: system design & clean automation
+  ask_me_about: Python, GitHub Actions, automation
+
+# Timezone used for the "last updated" footer (IANA name).
+timezone: Asia/Kolkata
+
+# How many recent activity items to show.
+activity_count: 5
+
+# Social / contact links. Leave a value empty ("") to hide that badge.
+socials:
+  github: VinayaSri22
+  linkedin: "https://www.linkedin.com/in/g-vinaya-sri/"
+  email: "gangavarapuvinayasri14@gmail.com"
+  website: ""

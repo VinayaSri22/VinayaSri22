@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="180" viewBox="0 0 900 180" role="img">
+  <rect width="900" height="180" rx="16" fill="#0d1117"/>
+  <rect x="0" y="0" width="6" height="180" rx="3" fill="#58a6ff"/>
+  <text x="48" y="82" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="40" font-weight="700" fill="#e6edf3">Vinaya Sri</text>
+  <text x="48" y="122" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="20" fill="#8b949e">Software engineer • building things that update themselves</text>
+  <circle cx="852" cy="48" r="6" fill="#58a6ff"/>
+  <circle cx="852" cy="72" r="6" fill="#8b949e" opacity="0.5"/>
+  <circle cx="852" cy="96" r="6" fill="#8b949e" opacity="0.3"/>
+</svg>
