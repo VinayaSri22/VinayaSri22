@@ -60,14 +60,15 @@
 
   "quotes_daily": true,
 
-  "stats_fallback": {
-    "repos": 31,
-    "followers": 52,
-    "following": 39,
-    "stars": 41,
-    "contributions_year": 2184,
-    "commits_all": 6731,
-    "pull_requests": 87,
-    "issues": 36
+  "_comment_sample_stats": "Placeholder numbers used ONLY for local previews (python update.py --sample). CI always fetches live data and never uses these.",
+  "sample_stats": {
+    "repos": 32,
+    "followers": 24,
+    "following": 12,
+    "stars": 18,
+    "contributions_year": 640,
+    "commits_all": 1830,
+    "pull_requests": 26,
+    "issues": 14
   }
 }

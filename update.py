@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """GitHub Profile OS — a self-updating, dashboard-style GitHub profile.
 
-Reads config.json, pulls live data from the GitHub REST + GraphQL APIs,
-renders a set of theme-adaptive SVG panels, and assembles README.md.
+Reads config.json, pulls live data from the GitHub REST + GraphQL APIs, and
+renders the whole profile as a single composed SVG (in a dark and a light
+variant). README.md embeds them with <picture> so the layout is pixel-perfect
+and theme-correct on GitHub.
 
-Design goals: no server, no database, single script, standard library only.
-Every colored element carries an explicit dark-theme color attribute *and* a
-CSS class, so the SVGs render correctly both in dumb rasterizers (attribute)
-and on GitHub, where an embedded <style> media query swaps to a light palette
-for viewers using a light system theme.
+Design goals: no server, no database, single script, standard library only,
+and NO fabricated statistics — in CI the run fails rather than commit fake data.
 """
 
 from __future__ import annotations
@@ -29,60 +28,43 @@ ASSETS_DIR = ROOT / "assets"
 API = "https://api.github.com"
 MONO = "'JetBrains Mono','SFMono-Regular',ui-monospace,Consolas,'Liberation Mono',Menlo,monospace"
 
+DASH_W, DASH_H = 976, 1058
+
 # --------------------------------------------------------------------------- #
-# Theme palettes. Keys are shared; values differ per system color scheme.
+# Theme palettes.
 # --------------------------------------------------------------------------- #
 DARK = {
-    "panel": "#0d0d0f", "border": "#ff3d7f", "fg": "#f4f4f6", "muted": "#8b909a",
-    "accent": "#ff3d7f", "accent2": "#ff8fb3", "track": "#26262c", "skin": "#c9d1d9",
-    "ink": "#0a0a0a", "g0": "#26262c", "g1": "#0e4429", "g2": "#006d32",
-    "g3": "#26a641", "g4": "#39d353",
+    "bg": "#0a0a0a", "panel": "#101014", "border": "#ff3d7f", "fg": "#f4f4f6",
+    "muted": "#8b909a", "accent": "#ff3d7f", "accent2": "#ff8fb3", "track": "#26262c",
+    "skin": "#c9d1d9", "ink": "#0a0a0a", "g0": "#26262c", "g1": "#0e4429",
+    "g2": "#006d32", "g3": "#26a641", "g4": "#39d353",
 }
 LIGHT = {
-    "panel": "#ffffff", "border": "#ff4d8d", "fg": "#1f2328", "muted": "#57606a",
-    "accent": "#d6336c", "accent2": "#e8639a", "track": "#eaecef", "skin": "#57606a",
-    "ink": "#ffffff", "g0": "#ebedf0", "g1": "#9be9a8", "g2": "#40c463",
-    "g3": "#30a14e", "g4": "#216e39",
+    "bg": "#ffffff", "panel": "#fbfbfd", "border": "#ff4d8d", "fg": "#1f2328",
+    "muted": "#57606a", "accent": "#d6336c", "accent2": "#c02a5b", "track": "#e6e8eb",
+    "skin": "#6a7079", "ink": "#ffffff", "g0": "#ebedf0", "g1": "#9be9a8",
+    "g2": "#40c463", "g3": "#30a14e", "g4": "#216e39",
 }
-KEYS = list(DARK.keys())
+PAL = DARK  # active palette; swapped per variant during rendering
 
 
-def build_style() -> str:
-    root_vars = ";".join(f"--{k}:{DARK[k]}" for k in KEYS)
-    light_vars = ";".join(f"--{k}:{LIGHT[k]}" for k in KEYS)
-    fills = " ".join(f".f-{k}{{fill:var(--{k})}}" for k in KEYS)
-    strokes = " ".join(f".s-{k}{{stroke:var(--{k})}}" for k in KEYS)
-    return (
-        "<style>"
-        f":root{{{root_vars}}}"
-        f"@media (prefers-color-scheme:light){{:root{{{light_vars}}}}}"
-        f"{fills} {strokes}"
-        f"text{{font-family:{MONO};}}"
-        ".ist{fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}"
-        ".dash{fill:none;stroke-dasharray:4 4}"
-        ".lead{stroke-dasharray:1.5 4;stroke-width:1}"
-        "</style>"
-    )
-
-
-STYLE = build_style()
+def set_palette(pal):
+    global PAL
+    PAL = pal
 
 
 # --------------------------------------------------------------------------- #
-# Tiny SVG emit helpers (each sets a concrete dark color + a themeable class).
+# SVG emit helpers.
 # --------------------------------------------------------------------------- #
-def esc(s: object) -> str:
+def esc(s):
     return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def rect(x, y, w, h, key="panel", rx=0, stroke=None, sw=1.4, extra=""):
-    cls = f"f-{key}"
-    s = ""
-    if stroke:
-        cls += f" s-{stroke}"
-        s = f' stroke="{DARK[stroke]}" stroke-width="{sw}"'
+def rect(x, y, w, h, key="panel", rx=0, stroke=None, sw=1.4, dash=False):
+    s = f' stroke="{PAL[stroke]}" stroke-width="{sw}"' if stroke else ""
+    d = ' stroke-dasharray="4 4"' if dash else ""
     return (f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{rx}" '
-            f'fill="{DARK[key]}" class="{cls}"{s} {extra}/>')
+            f'fill="{PAL[key]}"{s}{d}/>')
 
 
 def text(x, y, s, key="fg", size=13, weight=None, anchor=None, ls=None, italic=False):
@@ -90,118 +72,119 @@ def text(x, y, s, key="fg", size=13, weight=None, anchor=None, ls=None, italic=F
     w = f' font-weight="{weight}"' if weight else ""
     l = f' letter-spacing="{ls}"' if ls else ""
     i = ' font-style="italic"' if italic else ""
-    return (f'<text x="{x}" y="{y}" fill="{DARK[key]}" class="f-{key}" '
+    return (f'<text x="{x}" y="{y}" fill="{PAL[key]}" font-family="{MONO}" '
             f'font-size="{size}"{w}{a}{l}{i}>{esc(s)}</text>')
 
 
-def line(x1, y1, x2, y2, key="muted", sw=1, cls=""):
-    c = f"s-{key}" + (f" {cls}" if cls else "")
+def line(x1, y1, x2, y2, key="muted", sw=1, dash=None):
+    d = f' stroke-dasharray="{dash}"' if dash else ""
     return (f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" '
-            f'stroke="{DARK[key]}" class="{c}" stroke-width="{sw}"/>')
+            f'stroke="{PAL[key]}" stroke-width="{sw}"{d} stroke-linecap="round"/>')
 
 
 def circle(cx, cy, r, key="accent", stroke=None, sw=1.4):
     if stroke:
         return (f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" '
-                f'stroke="{DARK[stroke]}" class="s-{stroke}" stroke-width="{sw}"/>')
-    return f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{DARK[key]}" class="f-{key}"/>'
+                f'stroke="{PAL[stroke]}" stroke-width="{sw}"/>')
+    return f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{PAL[key]}"/>'
 
 
-def cw(size: float) -> float:
-    return size * 0.6  # monospace advance width approximation
+def cw(size):
+    return size * 0.6
 
 
 def header(x, y, label):
     return text(x, y, label, key="accent", size=11, weight=700, ls=2)
 
 
-def wrap(s: str, width: int):
-    out, line_words = [], []
+def wrap(s, width):
+    out, cur = [], []
     for word in s.split():
-        if line_words and sum(len(w) for w in line_words) + len(line_words) + len(word) > width:
-            out.append(" ".join(line_words))
-            line_words = [word]
+        if cur and sum(len(w) for w in cur) + len(cur) + len(word) > width:
+            out.append(" ".join(cur))
+            cur = [word]
         else:
-            line_words.append(word)
-    if line_words:
-        out.append(" ".join(line_words))
+            cur.append(word)
+    if cur:
+        out.append(" ".join(cur))
     return out
 
 
 # --------------------------------------------------------------------------- #
-# Icons — minimal line glyphs drawn in a 20x20 box, translated into place.
+# Icons (minimal line glyphs in a 20x20 box).
 # --------------------------------------------------------------------------- #
-def _ist(d):
-    return f'<path class="ist s-accent" stroke="{DARK["accent"]}" d="{d}"/>'
+def _s(d):
+    return (f'<path d="{d}" fill="none" stroke="{PAL["accent"]}" stroke-width="1.6" '
+            f'stroke-linecap="round" stroke-linejoin="round"/>')
 
 
-def _if(d):
-    return f'<path class="f-accent" fill="{DARK["accent"]}" d="{d}"/>'
+def _f(d):
+    return f'<path d="{d}" fill="{PAL["accent"]}"/>'
 
 
-ICONS = {
-    "brain": lambda: (circle(7, 10, 4.3, stroke="accent") + circle(13, 10, 4.3, stroke="accent")
-                      + line(10, 5.6, 10, 14.4, "accent", 1.6, "ist")),
-    "robot": lambda: (f'<rect x="4" y="6" width="12" height="9" rx="2" fill="none" stroke="{DARK["accent"]}" class="s-accent ist"/>'
-                      + line(10, 2.5, 10, 6, "accent", 1.6, "ist") + circle(10, 2.2, 1.3)
-                      + circle(7.6, 10, 1.2) + circle(12.4, 10, 1.2)),
-    "bolt": lambda: _if("M11 2 L4 11 L9 11 L8 18 L15 8 L10 8 Z"),
-    "code": lambda: (_ist("M7 6 L3 10 L7 14") + _ist("M13 6 L17 10 L13 14")),
-    "server": lambda: (f'<rect x="3" y="4" width="14" height="5" rx="1.5" fill="none" stroke="{DARK["accent"]}" class="s-accent ist"/>'
-                       + f'<rect x="3" y="11" width="14" height="5" rx="1.5" fill="none" stroke="{DARK["accent"]}" class="s-accent ist"/>'
-                       + circle(6, 6.5, 1) + circle(6, 13.5, 1)),
-    "window": lambda: (f'<rect x="3" y="4" width="14" height="12" rx="1.5" fill="none" stroke="{DARK["accent"]}" class="s-accent ist"/>'
-                       + line(3, 8, 17, 8, "accent", 1.6, "ist") + circle(6, 6, 0.9)),
-    "database": lambda: (f'<ellipse cx="10" cy="5" rx="6" ry="2.4" fill="none" stroke="{DARK["accent"]}" class="s-accent ist"/>'
-                         + _ist("M4 5 V15 c0 1.3 2.7 2.4 6 2.4 s6 -1.1 6 -2.4 V5")
-                         + _ist("M4 10 c0 1.3 2.7 2.4 6 2.4 s6 -1.1 6 -2.4")),
-    "wrench": lambda: _ist("M14.5 3.5 a3.4 3.4 0 0 0 -4.4 4.4 L4 14 l2 2 6.1 -6.1 a3.4 3.4 0 0 0 4.4 -4.4 l-2.1 2.1 -1.9 -1.9 Z"),
-    "globe": lambda: (circle(10, 10, 7, stroke="accent")
-                      + f'<ellipse cx="10" cy="10" rx="3" ry="7" fill="none" stroke="{DARK["accent"]}" class="s-accent ist"/>'
-                      + line(3, 10, 17, 10, "accent", 1.6, "ist")),
-    "linkedin": lambda: (f'<rect x="3" y="3" width="14" height="14" rx="2.5" fill="none" stroke="{DARK["accent"]}" class="s-accent ist"/>'
-                         + circle(6.4, 6.6, 1.1) + f'<rect x="5.5" y="8.8" width="1.8" height="5.4" fill="{DARK["accent"]}" class="f-accent"/>'
-                         + _if("M9.6 14.2 V8.8 h1.7 v.8 c.4-.6 1-.9 1.9-.9 1.4 0 2.3 .9 2.3 2.8 v2.7 h-1.8 v-2.6 c0-.8-.3-1.3-1-1.3 -.7 0-1 .5-1 1.3 v2.6 Z")),
-    "mail": lambda: (f'<rect x="3" y="5" width="14" height="10" rx="1.8" fill="none" stroke="{DARK["accent"]}" class="s-accent ist"/>'
-                     + _ist("M3.6 6.2 L10 11 L16.4 6.2")),
-    "link": lambda: (_ist("M9 11 a3 3 0 0 1 0 -4 l1.5 -1.5 a3 3 0 0 1 4 4 L13 11")
-                     + _ist("M11 9 a3 3 0 0 1 0 4 l-1.5 1.5 a3 3 0 0 1 -4 -4 L7 9")),
-    "pin": lambda: (_ist("M10 2.5 a5 5 0 0 0 -5 5 c0 3.6 5 9 5 9 s5 -5.4 5 -9 a5 5 0 0 0 -5 -5 Z")
-                    + circle(10, 7.2, 1.7, stroke="accent")),
-    "coffee": lambda: (f'<rect x="4" y="7" width="9" height="8" rx="1.5" fill="none" stroke="{DARK["accent"]}" class="s-accent ist"/>'
-                       + _ist("M13 9 h2 a2 2 0 0 1 0 4 h-2") + _ist("M6 3 v2 M9 3 v2")),
-    "run": lambda: (circle(12, 4, 1.7) + _ist("M11 8 l-3 2 2 2 -1 4") + _ist("M11 10 l3 1 2 -1") + _ist("M8 10 l-3 1")),
-    "pen": lambda: (_ist("M4 16 l1 -3 8 -8 2 2 -8 8 -3 1 Z") + line(11.5, 5.5, 13.5, 7.5, "accent", 1.6, "ist")),
-}
+def _icons():
+    return {
+        "brain": circle(7, 10, 4.3, stroke="accent") + circle(13, 10, 4.3, stroke="accent")
+                 + line(10, 5.6, 10, 14.4, "accent", 1.6),
+        "robot": f'<rect x="4" y="6" width="12" height="9" rx="2" fill="none" stroke="{PAL["accent"]}" stroke-width="1.6"/>'
+                 + line(10, 2.5, 10, 6, "accent", 1.6) + circle(10, 2.2, 1.3)
+                 + circle(7.6, 10, 1.2) + circle(12.4, 10, 1.2),
+        "bolt": _f("M11 2 L4 11 L9 11 L8 18 L15 8 L10 8 Z"),
+        "code": _s("M7 6 L3 10 L7 14") + _s("M13 6 L17 10 L13 14"),
+        "server": f'<rect x="3" y="4" width="14" height="5" rx="1.5" fill="none" stroke="{PAL["accent"]}" stroke-width="1.6"/>'
+                  + f'<rect x="3" y="11" width="14" height="5" rx="1.5" fill="none" stroke="{PAL["accent"]}" stroke-width="1.6"/>'
+                  + circle(6, 6.5, 1) + circle(6, 13.5, 1),
+        "window": f'<rect x="3" y="4" width="14" height="12" rx="1.5" fill="none" stroke="{PAL["accent"]}" stroke-width="1.6"/>'
+                  + line(3, 8, 17, 8, "accent", 1.6) + circle(6, 6, 0.9),
+        "database": f'<ellipse cx="10" cy="5" rx="6" ry="2.4" fill="none" stroke="{PAL["accent"]}" stroke-width="1.6"/>'
+                    + _s("M4 5 V15 c0 1.3 2.7 2.4 6 2.4 s6 -1.1 6 -2.4 V5")
+                    + _s("M4 10 c0 1.3 2.7 2.4 6 2.4 s6 -1.1 6 -2.4"),
+        "wrench": _s("M14.5 3.5 a3.4 3.4 0 0 0 -4.4 4.4 L4 14 l2 2 6.1 -6.1 a3.4 3.4 0 0 0 4.4 -4.4 l-2.1 2.1 -1.9 -1.9 Z"),
+        "globe": circle(10, 10, 7, stroke="accent")
+                 + f'<ellipse cx="10" cy="10" rx="3" ry="7" fill="none" stroke="{PAL["accent"]}" stroke-width="1.6"/>'
+                 + line(3, 10, 17, 10, "accent", 1.6),
+        "linkedin": f'<rect x="3" y="3" width="14" height="14" rx="2.5" fill="none" stroke="{PAL["accent"]}" stroke-width="1.6"/>'
+                    + circle(6.4, 6.6, 1.1) + f'<rect x="5.5" y="8.8" width="1.8" height="5.4" fill="{PAL["accent"]}"/>'
+                    + _f("M9.6 14.2 V8.8 h1.7 v.8 c.4-.6 1-.9 1.9-.9 1.4 0 2.3 .9 2.3 2.8 v2.7 h-1.8 v-2.6 c0-.8-.3-1.3-1-1.3 -.7 0-1 .5-1 1.3 v2.6 Z"),
+        "mail": f'<rect x="3" y="5" width="14" height="10" rx="1.8" fill="none" stroke="{PAL["accent"]}" stroke-width="1.6"/>'
+                + _s("M3.6 6.2 L10 11 L16.4 6.2"),
+        "link": _s("M9 11 a3 3 0 0 1 0 -4 l1.5 -1.5 a3 3 0 0 1 4 4 L13 11")
+                + _s("M11 9 a3 3 0 0 1 0 4 l-1.5 1.5 a3 3 0 0 1 -4 -4 L7 9"),
+        "pin": _s("M10 2.5 a5 5 0 0 0 -5 5 c0 3.6 5 9 5 9 s5 -5.4 5 -9 a5 5 0 0 0 -5 -5 Z")
+               + circle(10, 7.2, 1.7, stroke="accent"),
+        "pen": _s("M4 16 l1 -3 8 -8 2 2 -8 8 -3 1 Z") + line(11.5, 5.5, 13.5, 7.5, "accent", 1.6),
+    }
 
 
 def icon(name, x, y, scale=1.0):
-    glyph = ICONS.get(name, ICONS["code"])()
+    glyph = _icons().get(name, _icons()["code"])
     return f'<g transform="translate({x},{y}) scale({scale})">{glyph}</g>'
 
 
 # --------------------------------------------------------------------------- #
-# Pixel-art avatar (14 columns). Legend -> color key.
+# Pixel-art avatar: girl with an open laptop (20 columns wide).
 # --------------------------------------------------------------------------- #
 AVATAR = [
-    "    hhhhhh    ",
-    "  hhhhhhhhhh  ",
-    " hhhhhhhhhhhh ",
-    " hhffffffffhh ",
-    " hffffffffffh ",
-    " hffeffffeffh ",
-    " hffffffffffh ",
-    " hffffffffffh ",
-    " hfffeeeefffh ",
-    " hhffffffffhh ",
-    "  hffffffffh  ",
-    "    ffffff    ",
-    "   ssssssss   ",
-    "  ssssssssss  ",
-    " ssssssssssss ",
-    " ss  ssss  ss ",
+    "      hhhhhhhh      ",
+    "    hhhhhhhhhhhh    ",
+    "   hhhhhhhhhhhhhh   ",
+    "  hhhhffffffffhhhh  ",
+    "  hhhffffffffffhhh  ",
+    "  hhhffeffffeffhhh  ",
+    "  hhhffffffffffhhh  ",
+    "  hhhfffeeeefffhhh  ",
+    "  hhhffffffffffhhh  ",
+    "  hhhhffffffffhhhh  ",
+    "  hhh  ffffff  hhh  ",
+    "   bbbbbbbbbbbbbb   ",
+    "  bbbbbbbbbbbbbbbb  ",
+    "  bbllllllllllllbb  ",
+    "  bllkkkkkkkkkkllb  ",
+    "  bllkkkkkkkkkkllb  ",
+    "  bbllllllllllllbb  ",
+    " llllllllllllllllll ",
 ]
-PIX = {"h": "accent", "f": "skin", "e": "ink", "s": "muted"}
+PIX = {"h": "accent", "f": "skin", "e": "ink", "b": "accent2", "l": "muted", "k": "accent"}
 
 
 def avatar(x, y, px=8):
@@ -210,19 +193,16 @@ def avatar(x, y, px=8):
         for c, ch in enumerate(row):
             key = PIX.get(ch)
             if key:
-                out.append(f'<rect x="{c*px}" y="{r*px}" width="{px}" height="{px}" '
-                           f'fill="{DARK[key]}" class="f-{key}"/>')
-    # sparkles
-    for sx, sy, s in ((-14, 26, 5), (128, 16, 6), (120, 96, 4)):
+                out.append(f'<rect x="{c*px}" y="{r*px}" width="{px}" height="{px}" fill="{PAL[key]}"/>')
+    for sx, sy, s in ((-16, 30, 5), (150, 18, 6), (138, 108, 4)):
         out.append(f'<g transform="translate({sx},{sy})">'
-                   + line(0, -s, 0, s, "accent2", 1.6, "ist")
-                   + line(-s, 0, s, 0, "accent2", 1.6, "ist") + '</g>')
+                   + line(0, -s, 0, s, "accent2", 1.6) + line(-s, 0, s, 0, "accent2", 1.6) + "</g>")
     out.append("</g>")
     return "".join(out)
 
 
 # --------------------------------------------------------------------------- #
-# GitHub data fetching (graceful fallback to config's stats_fallback).
+# GitHub data.
 # --------------------------------------------------------------------------- #
 def _token():
     return os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
@@ -242,7 +222,10 @@ def graphql(query, variables):
     headers = {"Authorization": f"Bearer {_token()}", "User-Agent": "github-profile-os",
                "Content-Type": "application/json"}
     with urlopen(Request(f"{API}/graphql", data=body, headers=headers), timeout=30) as r:
-        return json.loads(r.read().decode())
+        data = json.loads(r.read().decode())
+    if "errors" in data:
+        raise RuntimeError(f"GraphQL error: {data['errors']}")
+    return data
 
 
 CAL_QUERY = """
@@ -261,80 +244,74 @@ query($login:String!,$from:DateTime!,$to:DateTime!){
 }"""
 
 
-def fetch_stats(username, fallback):
-    stats = dict(fallback)
-    stats["weeks"] = None
-    now = datetime.now(timezone.utc)
-    stats["year"] = now.year
-    try:
-        u = rest(f"/users/{username}")
-        stats["repos"] = u.get("public_repos", stats["repos"])
-        stats["followers"] = u.get("followers", stats["followers"])
-        stats["following"] = u.get("following", stats["following"])
-        created = u.get("created_at", "")
-        created_year = int(created[:4]) if created else now.year
-    except (HTTPError, URLError, KeyError, ValueError) as e:
-        print(f"warning: user fetch failed: {e}", file=sys.stderr)
-        created_year = now.year
-
-    try:  # sum stars across repos
-        stars, page = 0, 1
-        while page <= 5:
-            repos = rest(f"/users/{username}/repos?per_page=100&page={page}&type=owner")
-            if not repos:
-                break
-            stars += sum(r.get("stargazers_count", 0) for r in repos)
-            if len(repos) < 100:
-                break
-            page += 1
-        stats["stars"] = stars
-    except (HTTPError, URLError) as e:
-        print(f"warning: repo fetch failed: {e}", file=sys.stderr)
-
-    if _token():
-        try:
-            frm = datetime(now.year, 1, 1, tzinfo=timezone.utc).isoformat()
-            res = graphql(CAL_QUERY, {"login": username, "from": frm, "to": now.isoformat()})
-            cc = res["data"]["user"]["contributionsCollection"]
-            stats["contributions_year"] = cc["contributionCalendar"]["totalContributions"]
-            stats["pull_requests"] = cc["totalPullRequestContributions"]
-            stats["issues"] = cc["totalIssueContributions"]
-            stats["weeks"] = cc["contributionCalendar"]["weeks"]
-            total_commits = cc["totalCommitContributions"]
-            for yr in range(created_year, now.year):
-                f0 = datetime(yr, 1, 1, tzinfo=timezone.utc).isoformat()
-                f1 = datetime(yr, 12, 31, 23, 59, tzinfo=timezone.utc).isoformat()
-                r = graphql(YEAR_QUERY, {"login": username, "from": f0, "to": f1})
-                total_commits += r["data"]["user"]["contributionsCollection"]["totalCommitContributions"]
-            stats["commits_all"] = total_commits
-        except (HTTPError, URLError, KeyError, TypeError) as e:
-            print(f"warning: graphql fetch failed: {e}", file=sys.stderr)
-
-    if not stats["weeks"]:
-        stats["weeks"] = synth_weeks(26)
-    return stats
-
-
-def synth_weeks(n):
-    """Deterministic pseudo-activity so local previews look alive without a token."""
+def synth_weeks(n=26):
     import hashlib
-    today = datetime.now(timezone.utc).date()
-    start = today.toordinal() - n * 7
+    today = datetime.now(timezone.utc).date().toordinal()
+    start = today - n * 7
     weeks = []
     for w in range(n):
         days = []
         for d in range(7):
             o = start + w * 7 + d
             h = int(hashlib.md5(str(o).encode()).hexdigest(), 16)
-            count = 0 if h % 5 == 0 else (h % 14)
-            days.append({"weekday": d, "contributionCount": count,
+            days.append({"weekday": d, "contributionCount": 0 if h % 5 == 0 else h % 14,
                          "date": datetime.fromordinal(o).strftime("%Y-%m-%d")})
         weeks.append({"contributionDays": days})
     return weeks
 
 
+def fetch_sample(cfg):
+    s = dict(cfg.get("sample_stats", {}))
+    s["year"] = datetime.now().year
+    s["weeks"] = synth_weeks()
+    return s
+
+
+def fetch_live(username):
+    """Fetch real data. Raises on any failure so CI never commits fake stats."""
+    now = datetime.now(timezone.utc)
+    stats = {"year": now.year}
+
+    u = rest(f"/users/{username}")
+    stats["repos"] = u["public_repos"]
+    stats["followers"] = u["followers"]
+    stats["following"] = u["following"]
+    created_year = int(u["created_at"][:4])
+
+    stars, page = 0, 1
+    while page <= 10:
+        repos = rest(f"/users/{username}/repos?per_page=100&page={page}&type=owner")
+        if not repos:
+            break
+        stars += sum(r.get("stargazers_count", 0) for r in repos)
+        if len(repos) < 100:
+            break
+        page += 1
+    stats["stars"] = stars
+
+    if not _token():
+        raise RuntimeError("GITHUB_TOKEN is required for contribution/commit stats.")
+
+    frm = datetime(now.year, 1, 1, tzinfo=timezone.utc).isoformat()
+    cc = graphql(CAL_QUERY, {"login": username, "from": frm, "to": now.isoformat()})
+    cc = cc["data"]["user"]["contributionsCollection"]
+    stats["contributions_year"] = cc["contributionCalendar"]["totalContributions"]
+    stats["pull_requests"] = cc["totalPullRequestContributions"]
+    stats["issues"] = cc["totalIssueContributions"]
+    stats["weeks"] = cc["contributionCalendar"]["weeks"]
+
+    commits = cc["totalCommitContributions"]
+    for yr in range(created_year, now.year):
+        f0 = datetime(yr, 1, 1, tzinfo=timezone.utc).isoformat()
+        f1 = datetime(yr, 12, 31, 23, 59, tzinfo=timezone.utc).isoformat()
+        r = graphql(YEAR_QUERY, {"login": username, "from": f0, "to": f1})
+        commits += r["data"]["user"]["contributionsCollection"]["totalCommitContributions"]
+    stats["commits_all"] = commits
+    return stats
+
+
 # --------------------------------------------------------------------------- #
-# Quotes
+# Quotes.
 # --------------------------------------------------------------------------- #
 QUOTES = [
     ("The best optimization is deleting unnecessary work.", "Donald Knuth"),
@@ -346,153 +323,133 @@ QUOTES = [
     ("Premature optimization is the root of all evil.", "Donald Knuth"),
     ("Code is like humor. When you have to explain it, it's bad.", "Cory House"),
     ("The most damaging phrase is: we've always done it this way.", "Grace Hopper"),
-    ("Any fool can write code a computer understands. Good programmers write code humans understand.", "Martin Fowler"),
+    ("Good programmers write code that humans can understand.", "Martin Fowler"),
     ("It always seems impossible until it's done.", "Nelson Mandela"),
     ("Deleted code is debugged code.", "Jeff Sickel"),
     ("Fix the cause, not the symptom.", "Steve Maguire"),
     ("Testing shows the presence, not the absence of bugs.", "Edsger Dijkstra"),
-    ("The function of good software is to make the complex appear simple.", "Grady Booch"),
+    ("Make the complex appear simple.", "Grady Booch"),
 ]
 
 
 def quote_today():
-    idx = datetime.now().timetuple().tm_yday % len(QUOTES)
-    return QUOTES[idx]
+    return QUOTES[datetime.now().timetuple().tm_yday % len(QUOTES)]
 
 
 # --------------------------------------------------------------------------- #
-# Panel builders — each returns (inner_svg, width, height).
+# Panels — each returns (inner_svg, w, h).
 # --------------------------------------------------------------------------- #
-def frame(w, h, pad=6):
-    return rect(pad, pad, w - 2 * pad, h - 2 * pad, key="panel", rx=14, stroke="border", sw=1.4)
+def frame(w, h):
+    return rect(0, 0, w, h, key="panel", rx=14, stroke="border", sw=1.4)
 
 
-def panel_banner(cfg):
-    w, h = 636, 262
-    p = [frame(w, h)]
-    p.append(text(34, 60, cfg["name"], key="accent", size=30, weight=700))
-    p.append(text(34, 92, cfg.get("role", ""), key="muted", size=14))
+def p_banner(cfg):
+    w, h = 600, 250
+    p = [frame(w, h), text(30, 58, cfg["name"], key="accent", size=30, weight=700),
+         text(30, 90, cfg.get("role", ""), key="muted", size=14)]
     for i, ln in enumerate(cfg.get("tagline", "").split("\n")):
-        p.append(text(34, 122 + i * 20, ln, key="fg", size=13))
+        p.append(text(30, 120 + i * 20, ln, key="fg", size=13))
     chips = cfg.get("hero_chips", [])
     if chips:
-        p.append(icon("pin", 34, 190, 0.85))
-        p.append(text(58, 204, "   ".join(chips) if False else "  •  ".join(chips),
-                      key="muted", size=12))
-    p.append(avatar(452, 46, px=8))
+        p.append(icon("pin", 30, 188, 0.85))
+        p.append(text(54, 202, "  •  ".join(chips), key="muted", size=12))
+    p.append(avatar(416, 40, px=8))
     return "".join(p), w, h
 
 
-def panel_stats(cfg, stats):
-    w, h = 330, 262
-    p = [frame(w, h), header(24, 40, "GITHUB STATS")]
+def p_stats(cfg, s):
+    w, h = 326, 250
+    p = [frame(w, h), header(22, 38, "GITHUB STATS")]
     rows = [
-        ("Repositories", stats["repos"]),
-        ("Followers", stats["followers"]),
-        ("Following", stats["following"]),
-        ("Stars", stats["stars"]),
-        (f"Contributions ({stats['year']})", f"{stats['contributions_year']:,}"),
-        ("Commits (All Time)", f"{stats['commits_all']:,}"),
-        ("Pull Requests", stats["pull_requests"]),
-        ("Issues", stats["issues"]),
+        ("Repositories", s["repos"]), ("Followers", s["followers"]),
+        ("Following", s["following"]), ("Stars", s["stars"]),
+        (f"Contributions ({s['year']})", f"{s['contributions_year']:,}"),
+        ("Commits (All Time)", f"{s['commits_all']:,}"),
+        ("Pull Requests", s["pull_requests"]), ("Issues", s["issues"]),
     ]
-    y = 66
+    y = 64
     for label, val in rows:
         val = str(val)
-        p.append(text(24, y, label, key="fg", size=12))
-        p.append(text(w - 24, y, val, key="accent", size=12, weight=700, anchor="end"))
-        lx = 24 + len(label) * cw(12) + 8
-        rx = (w - 24) - len(val) * cw(12) - 8
+        p.append(text(22, y, label, key="fg", size=12))
+        p.append(text(w - 22, y, val, key="accent", size=12, weight=700, anchor="end"))
+        lx = 22 + len(label) * cw(12) + 8
+        rx = (w - 22) - len(val) * cw(12) - 8
         if rx > lx:
-            p.append(line(lx, y - 4, rx, y - 4, "muted", 1, "lead"))
-        y += 20.5
-    p.append(line(24, 226, w - 24, 226, "track", 1))
-    ts = datetime.now(ZoneInfo(cfg.get("timezone", "UTC"))) if cfg.get("timezone") else datetime.now()
-    stamp = ts.strftime("%d %b %Y  •  %I:%M %p")
-    p.append(text(24, 246, f"Last updated {stamp}", key="muted", size=10))
+            p.append(line(lx, y - 4, rx, y - 4, "muted", 1, "1.5 4"))
+        y += 20
+    p.append(line(22, 216, w - 22, 216, "track", 1))
+    ts = datetime.now(ZoneInfo(cfg.get("timezone", "UTC")))
+    p.append(text(22, 236, f"Last updated {ts.strftime('%d %b %Y  •  %I:%M %p')}", key="muted", size=10))
     return "".join(p), w, h
 
 
-def panel_journal(cfg):
-    w, h = 968, 98
-    p = [frame(w, h)]
-    p.append(icon("pen", 26, 22, 0.95))
-    p.append(header(54, 34, "ENGINEERING JOURNAL"))
-    lines = wrap(cfg.get("engineering_journal", ""), 112)[:2]
-    for i, ln in enumerate(lines):
+def p_journal(cfg):
+    w, h = 940, 92
+    p = [frame(w, h), icon("pen", 26, 22, 0.95), header(54, 34, "ENGINEERING JOURNAL")]
+    for i, ln in enumerate(wrap(cfg.get("engineering_journal", ""), 110)[:2]):
         p.append(text(54, 58 + i * 20, ln, key="fg", size=13))
     return "".join(p), w, h
 
 
-def panel_building(cfg):
-    w, h = 478, 300
-    p = [frame(w, h), header(24, 36, "CURRENTLY BUILDING")]
-    y = 56
+def p_building(cfg):
+    w, h = 463, 300
+    p = [frame(w, h), header(22, 36, "CURRENTLY BUILDING")]
     items = cfg.get("building", [])[:3]
+    y = 56
     for idx, it in enumerate(items):
-        p.append(rect(24, y + 4, 40, 40, key="panel", rx=10, stroke="border", sw=1.2))
-        p.append(icon(it.get("icon", "code"), 34, y + 14, 1.0))
-        p.append(text(78, y + 16, it.get("name", ""), key="accent", size=13, weight=700))
+        p.append(rect(22, y + 4, 40, 40, key="panel", rx=10, stroke="border", sw=1.2))
+        p.append(icon(it.get("icon", "code"), 32, y + 14, 1.0))
+        p.append(text(74, y + 16, it.get("name", ""), key="accent", size=13, weight=700))
         for i, ln in enumerate(it.get("desc", "").split("\n")[:2]):
-            p.append(text(78, y + 34 + i * 15, ln, key="muted", size=10.5))
-        tags = "  •  ".join(it.get("tags", []))
-        p.append(text(w - 24, y + 16, tags, key="accent2", size=10.5, anchor="end"))
+            p.append(text(74, y + 34 + i * 15, ln, key="muted", size=10.5))
+        p.append(text(w - 20, y + 16, "  •  ".join(it.get("tags", [])), key="accent2", size=10.5, anchor="end"))
         if idx < len(items) - 1:
-            p.append(line(24, y + 74, w - 24, y + 74, "track", 1, "dash"))
+            p.append(line(22, y + 74, w - 22, y + 74, "track", 1, "4 4"))
         y += 80
     return "".join(p), w, h
 
 
-def panel_tech(cfg):
-    w, h = 486, 300
-    p = [frame(w, h), header(24, 36, "TECH STACK")]
+def p_tech(cfg):
+    w, h = 463, 300
+    p = [frame(w, h), header(22, 36, "TECH STACK")]
     y = 68
     for row in cfg.get("tech_stack", []):
-        p.append(icon(row.get("icon", "code"), 24, y - 14, 0.95))
-        p.append(text(56, y, row.get("label", ""), key="fg", size=12, weight=700))
+        p.append(icon(row.get("icon", "code"), 22, y - 14, 0.95))
+        p.append(text(54, y, row.get("label", ""), key="fg", size=12, weight=700))
         p.append(text(150, y, ":", key="muted", size=12))
         p.append(text(168, y, "   ".join(row.get("values", [])), key="muted", size=12))
         y += 37
     return "".join(p), w, h
 
 
-def panel_learning(cfg):
-    w, h = 316, 270
-    p = [frame(w, h), header(24, 36, "LEARNING JOURNEY")]
+def p_learning(cfg):
+    w, h = 300, 268
+    p = [frame(w, h), header(22, 36, "LEARNING JOURNEY")]
     items = list(cfg.get("learning", {}).items())[:6]
     y = 62
-    bx, blocks, bw, gap = 148, 10, 8, 2
+    bx, bw, gap = 134, 8, 2
     for name, pct in items:
-        p.append(text(24, y, name, key="fg", size=10.5))
+        p.append(text(22, y, name, key="fg", size=10.5))
         filled = round(pct / 10)
-        for b in range(blocks):
-            key = "accent" if b < filled else "track"
-            p.append(rect(bx + b * (bw + gap), y - 9, bw, 11, key=key, rx=2))
-        p.append(text(w - 20, y, f"{pct}%", key="accent", size=10.5, weight=700, anchor="end"))
-        y += 27
-    q = wrap(cfg.get("learning_quote", ""), 48)[:2]
-    qy = 232
-    for ln in q:
+        for b in range(10):
+            p.append(rect(bx + b * (bw + gap), y - 9, bw, 11, key=("accent" if b < filled else "track"), rx=2))
+        p.append(text(w - 16, y, f"{pct}%", key="accent", size=10.5, weight=700, anchor="end"))
+        y += 26
+    qy = 226
+    for ln in wrap(cfg.get("learning_quote", ""), 46)[:2]:
         p.append(text(w / 2, qy, ln, key="muted", size=9.5, anchor="middle", italic=True))
-        qy += 15
+        qy += 14
     return "".join(p), w, h
 
 
-def _levels(weeks):
+def p_activity(cfg, s):
+    w, h = 312, 268
+    weeks = s["weeks"][-26:]
+    p = [frame(w, h), header(22, 36, "GITHUB ACTIVITY")]
+    gx, gy, cell, step = 46, 70, 7, 9
     counts = [d["contributionCount"] for wk in weeks for d in wk["contributionDays"]]
     mx = max(counts) if counts else 0
-    return mx
-
-
-def panel_activity(cfg, stats):
-    w, h = 330, 270
-    weeks = stats["weeks"][-26:]
-    p = [frame(w, h), header(24, 36, "GITHUB ACTIVITY")]
-    gx, gy, cell, gp = 52, 66, 8, 2
-    step = cell + gp
-    mx = _levels(weeks)
-    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
-              "Aug", "Sep", "Oct", "Nov", "Dec"]
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     last_m = None
     for wi, wk in enumerate(weeks):
         days = {d["weekday"]: d for d in wk["contributionDays"]}
@@ -510,23 +467,22 @@ def panel_activity(cfg, stats):
             else:
                 r = c / mx
                 lvl = "g1" if r <= 0.25 else "g2" if r <= 0.5 else "g3" if r <= 0.75 else "g4"
-            p.append(rect(gx + wi * step, gy + d * step, cell, cell, key=lvl, rx=2))
+            p.append(rect(gx + wi * step, gy + d * step, cell, cell, key=lvl, rx=1.5))
     for wd, lab in ((1, "Mon"), (3, "Wed"), (5, "Fri")):
-        p.append(text(20, gy + wd * step + cell, lab, key="muted", size=8))
-    # legend
-    ly = gy + 7 * step + 22
+        p.append(text(14, gy + wd * step + cell, lab, key="muted", size=8))
+    ly = gy + 7 * step + 24
     p.append(text(gx, ly, "Less", key="muted", size=9))
     for i, lv in enumerate(["g0", "g1", "g2", "g3", "g4"]):
-        p.append(rect(gx + 34 + i * 12, ly - 9, cell, cell, key=lv, rx=2))
-    p.append(text(gx + 34 + 5 * 12 + 6, ly, "More", key="muted", size=9))
-    p.append(text(w / 2, ly + 26, f"{stats['contributions_year']:,} contributions in {stats['year']}",
+        p.append(rect(gx + 34 + i * 11, ly - 8, cell, cell, key=lv, rx=1.5))
+    p.append(text(gx + 34 + 5 * 11 + 6, ly, "More", key="muted", size=9))
+    p.append(text(w / 2, ly + 28, f"{s['contributions_year']:,} contributions in {s['year']}",
                   key="fg", size=11, anchor="middle"))
     return "".join(p), w, h
 
 
-def panel_connect_quote(cfg):
-    w, h = 316, 270
-    p = [frame(w, h), header(24, 36, "CONNECT")]
+def p_connect(cfg):
+    w, h = 300, 268
+    p = [frame(w, h), header(22, 36, "CONNECT")]
     soc = cfg.get("socials", {})
     rows = [("linkedin", soc.get("linkedin")), ("mail", soc.get("email")),
             ("link", soc.get("website")), ("pin", soc.get("location"))]
@@ -534,17 +490,15 @@ def panel_connect_quote(cfg):
     for ic, val in rows:
         if not val:
             continue
-        p.append(icon(ic, 24, y - 14, 0.9))
-        p.append(text(52, y, val, key="fg", size=11))
-        y += 28
-    p.append(line(20, 170, w - 20, 170, "track", 1, "dash"))
-    # quote box
-    qx, qy, qw, qh = 16, 182, w - 32, 74
-    p.append(rect(qx, qy, qw, qh, key="panel", rx=10, stroke="border", sw=1))
-    p[-1] = p[-1].replace('class="f-panel s-border"', 'class="f-panel s-border dash"')
+        p.append(icon(ic, 22, y - 14, 0.9))
+        p.append(text(50, y, val, key="fg", size=11))
+        y += 26
+    p.append(line(18, 162, w - 18, 162, "track", 1, "4 4"))
+    qx, qy, qw, qh = 14, 172, w - 28, 84
+    p.append(rect(qx, qy, qw, qh, key="panel", rx=10, stroke="border", sw=1, dash=True))
     quote, author = quote_today()
-    lines = wrap(quote, 34)[:3]
-    ty = qy + 26 - (len(lines) - 1) * 7
+    lines = wrap(quote, 32)[:3]
+    ty = qy + 30 - (len(lines) - 1) * 7
     for ln in lines:
         p.append(text(w / 2, ty, ln, key="fg", size=10.5, anchor="middle", italic=True))
         ty += 15
@@ -552,31 +506,61 @@ def panel_connect_quote(cfg):
     return "".join(p), w, h
 
 
-def panel_footer(cfg):
-    w, h = 968, 60
-    p = [frame(w, h)]
-    p.append(text(w / 2, 36, cfg.get("footer", ""), key="fg", size=13, anchor="middle"))
-    return "".join(p), w, h
+def p_footer(cfg):
+    w, h = 940, 56
+    return frame(w, h) + text(w / 2, 34, cfg.get("footer", ""), key="fg", size=13, anchor="middle"), w, h
 
 
 # --------------------------------------------------------------------------- #
-# Assembly
+# Compose the whole dashboard.
 # --------------------------------------------------------------------------- #
-def svg_file(inner, w, h):
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" '
-            f'viewBox="0 0 {w} {h}" fill="none" role="img">{STYLE}{inner}</svg>\n')
+def dashboard_svg(cfg, stats, pal):
+    set_palette(pal)
+    layout = [
+        (p_banner(cfg), 18, 18),
+        (p_stats(cfg, stats), 632, 18),
+        (p_journal(cfg), 18, 282),
+        (p_building(cfg), 18, 388),
+        (p_tech(cfg), 495, 388),
+        (p_learning(cfg), 18, 702),
+        (p_activity(cfg, stats), 332, 702),
+        (p_connect(cfg), 658, 702),
+        (p_footer(cfg), 18, 984),
+    ]
+    parts = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{DASH_W}" height="{DASH_H}" '
+             f'viewBox="0 0 {DASH_W} {DASH_H}" fill="none" role="img" '
+             f'aria-label="{esc(cfg.get("name",""))} — GitHub profile dashboard">',
+             rect(0, 0, DASH_W, DASH_H, key="bg", rx=20)]
+    for (inner, w, h), x, y in layout:
+        parts.append(f'<g transform="translate({x},{y})">{inner}</g>')
+    parts.append("</svg>\n")
+    return "".join(parts)
 
 
-def write_asset(name, built):
-    inner, w, h = built
-    (ASSETS_DIR / f"{name}.svg").write_text(svg_file(inner, w, h), encoding="utf-8")
-    return name, w, h
+def _https(value):
+    v = value.strip()
+    for prefix in ("https://", "http://"):
+        if v.startswith(prefix):
+            v = v[len(prefix):]
+    return f"https://{v}"
 
 
-def build_readme(panels, cfg):
-    def img(name):
-        return f'<img src="assets/{name}.svg" width="{panels[name][1]}" alt="{name}">'
+def social_links(cfg):
+    soc = cfg.get("socials", {})
+    parts = []
+    gh = cfg.get("github_username")
+    if gh:
+        parts.append(f"[GitHub](https://github.com/{gh})")
+    if soc.get("linkedin"):
+        parts.append(f"[LinkedIn]({_https(soc['linkedin'])})")
+    if soc.get("email"):
+        parts.append(f"[Email](mailto:{soc['email']})")
+    if soc.get("website"):
+        parts.append(f"[Website]({_https(soc['website'])})")
+    return "  ·  ".join(parts)
 
+
+def build_readme(cfg):
     body = f"""<!-- ────────────────────────────────────────────────────────────── -->
 <!--  GitHub Profile OS — generated by update.py. Do not edit by hand.  -->
 <!--  Edit config.json instead; the daily GitHub Action rebuilds this.  -->
@@ -584,15 +568,13 @@ def build_readme(panels, cfg):
 
 <div align="center">
 
-{img('banner')}{img('github_stats')}
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/dashboard-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/dashboard-light.svg">
+  <img alt="{esc(cfg.get('name',''))} — GitHub profile dashboard" src="assets/dashboard-dark.svg" width="{DASH_W}">
+</picture>
 
-{img('journal')}
-
-{img('currently_building')}{img('tech_stack')}
-
-{img('learning')}{img('activity')}{img('connect_quote')}
-
-{img('footer')}
+{social_links(cfg)}
 
 </div>
 """
@@ -604,25 +586,27 @@ def main():
     username = cfg["github_username"]
     ASSETS_DIR.mkdir(exist_ok=True)
 
-    stats = fetch_stats(username, cfg.get("stats_fallback", {}))
+    in_ci = os.environ.get("GITHUB_ACTIONS") == "true"
+    use_sample = ("--sample" in sys.argv) or (not _token() and not in_ci)
 
-    built = {}
-    for name, panel in [
-        ("banner", panel_banner(cfg)),
-        ("github_stats", panel_stats(cfg, stats)),
-        ("journal", panel_journal(cfg)),
-        ("currently_building", panel_building(cfg)),
-        ("tech_stack", panel_tech(cfg)),
-        ("learning", panel_learning(cfg)),
-        ("activity", panel_activity(cfg, stats)),
-        ("connect_quote", panel_connect_quote(cfg)),
-        ("footer", panel_footer(cfg)),
-    ]:
-        n, w, h = write_asset(name, panel)
-        built[n] = (n, w, h)
+    if use_sample:
+        print("NOTE: using sample data (no token / local preview). CI uses live data.")
+        stats = fetch_sample(cfg)
+    else:
+        stats = fetch_live(username)  # raises on failure -> CI fails, no fake commit
 
-    build_readme(built, cfg)
-    print("Profile rebuilt: 9 panels + README.md")
+    (ASSETS_DIR / "dashboard-dark.svg").write_text(dashboard_svg(cfg, stats, DARK), encoding="utf-8")
+    (ASSETS_DIR / "dashboard-light.svg").write_text(dashboard_svg(cfg, stats, LIGHT), encoding="utf-8")
+    build_readme(cfg)
+
+    # Remove stale v2 per-panel assets if present.
+    for old in ["banner", "github_stats", "journal", "currently_building", "tech_stack",
+                "learning", "activity", "connect_quote", "footer"]:
+        f = ASSETS_DIR / f"{old}.svg"
+        if f.exists():
+            f.unlink()
+
+    print(f"Profile rebuilt ({'sample' if use_sample else 'live'} data): dashboard-dark.svg, dashboard-light.svg, README.md")
     return 0
 
 

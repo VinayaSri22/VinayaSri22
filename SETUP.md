@@ -4,14 +4,16 @@ A self-updating, dashboard-style GitHub profile README.
 
 - **No server, no database, no external services.** A single Python script
   (standard library only) reads `config.json`, pulls live data from the GitHub
-  REST + GraphQL APIs, renders a set of theme-adaptive SVG panels, and writes
-  `README.md`.
+  REST + GraphQL APIs, and renders the whole profile as one composed SVG
+  (a dark and a light variant), then writes `README.md`.
 - **Runs itself.** A GitHub Action rebuilds the dashboard every morning (and on
   every push to `config.json`) and commits the result.
-- **Fully themeable.** Every panel adapts to the viewer's light/dark system
-  theme automatically.
+- **Real data only.** In CI the run fetches live stats and *fails* rather than
+  commit fabricated numbers. Sample numbers exist only for local previews.
+- **Theme-correct.** `README.md` uses `<picture>` to serve the dark dashboard to
+  dark-theme viewers and the light one to light-theme viewers.
 
-![Dashboard preview](assets/banner.svg)
+![Dashboard preview](assets/dashboard-dark.svg)
 
 ---
 
@@ -48,7 +50,7 @@ Everything you see is driven by this one file. You never edit Python.
 | `learning_quote` | Italic line under the learning bars. |
 | `socials` | `linkedin`, `email`, `website`, `location` in the Connect panel. |
 | `footer` | Full-width footer message. |
-| `stats_fallback` | Values used if the API is unavailable (also power local previews). |
+| `sample_stats` | Placeholder numbers for **local previews only** (`--sample`). Never used in CI. |
 
 **Available icon names:** `brain`, `robot`, `bolt`, `code`, `server`,
 `window`, `database`, `wrench`, `globe`, `linkedin`, `mail`, `link`, `pin`,
@@ -65,19 +67,21 @@ Everything you see is driven by this one file. You never edit Python.
 | GitHub Activity heatmap | GraphQL contribution calendar (last 26 weeks). |
 | Daily quote | Rotates through a built-in list by day of year. |
 
-If the API can't be reached (e.g. running locally without a token), the script
-falls back to `stats_fallback` and a synthetic heatmap so it never breaks.
+**No fake data.** In GitHub Actions the script fetches live stats; if the API
+call fails it raises and the job fails, so a broken/fabricated dashboard is
+never committed. Locally (no token) it automatically switches to `--sample`
+mode with a synthetic heatmap so you can preview the design safely.
 
 ---
 
 ## Run locally
 
 ```bash
-python3 update.py          # regenerates assets/*.svg and README.md
-python3 preview.py         # composes a single preview.svg of the whole dashboard
+python3 update.py --sample   # build with sample data (no token needed)
+python3 preview.py           # build sample data + copy dark dashboard to preview.svg
 ```
 
-Preview rendering to PNG (macOS): `qlmanage -t -s 1936 -o . preview.svg`.
+Preview rendering to PNG (macOS): `qlmanage -t -s 1952 -o . preview.svg`.
 
 No dependencies are required — everything uses the Python standard library.
 
@@ -85,8 +89,8 @@ No dependencies are required — everything uses the Python standard library.
 
 ## How it stays GitHub-compatible
 
-GitHub renders SVGs referenced from the README as images. Each generated SVG
-embeds a `<style>` block with a `prefers-color-scheme` media query, so the same
-file shows a dark palette to dark-theme viewers and a light palette to
-light-theme viewers. Every element also carries an explicit color attribute, so
-it still renders correctly in tools that ignore CSS.
+The entire dashboard is generated as a **single composed SVG**, in a dark and a
+light variant (`assets/dashboard-dark.svg`, `assets/dashboard-light.svg`).
+`README.md` embeds them with a `<picture>` element, so GitHub can't reflow the
+layout and each viewer gets the variant matching their system theme. Clickable
+social links are rendered as normal Markdown links beneath the image.
