@@ -12,6 +12,7 @@ and NO fabricated statistics — in CI the run fails rather than commit fake dat
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import sys
@@ -250,6 +251,28 @@ def _avatar_grid():
     return g
 
 
+def _png_size(data):
+    return int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
+
+
+def avatar_image(cfg, box_w, box_h):
+    """Return an <image> element embedding the configured avatar PNG (base64),
+    fitted into box_w x box_h and right-aligned. Empty string if not set."""
+    rel = cfg.get("avatar")
+    if not rel:
+        return ""
+    path = ROOT / rel
+    if not path.exists():
+        return ""
+    data = path.read_bytes()
+    iw, ih = _png_size(data)
+    scale = min(box_w / iw, box_h / ih)
+    dw, dh = iw * scale, ih * scale
+    uri = "data:image/png;base64," + base64.b64encode(data).decode()
+    return (f'<image href="{uri}" width="{dw:.1f}" height="{dh:.1f}" '
+            f'x="0" y="{(box_h - dh) / 2:.1f}" preserveAspectRatio="xMidYMid meet"/>')
+
+
 def avatar(x, y, px=6):
     g = _avatar_grid()
     out = [f'<g transform="translate({x},{y})">']
@@ -422,7 +445,11 @@ def p_banner(cfg):
     if chips:
         p.append(icon("pin", 30, 188, 0.85))
         p.append(text(54, 202, "  •  ".join(chips), key="muted", size=11))
-    p.append(avatar(432, 26, px=6))
+    img = avatar_image(cfg, box_w=156, box_h=236)
+    if img:
+        p.append(f'<g transform="translate({w - 168},7)">{img}</g>')
+    elif cfg.get("avatar_style") == "pixel":
+        p.append(avatar(432, 26, px=6))
     return "".join(p), w, h
 
 

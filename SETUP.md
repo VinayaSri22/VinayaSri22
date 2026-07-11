@@ -41,6 +41,8 @@ Everything you see is driven by this one file. You never edit Python.
 | `github_username` | Which account's live stats are fetched. |
 | `name`, `role`, `tagline` | Hero banner text. `tagline` may use `\n` for line breaks. |
 | `hero_chips` | The `•`-separated chips under the tagline. |
+| `avatar` | Path to an image embedded (base64) into the hero. Set to `null`/`""` to remove it. |
+| `avatar_style` | `"image"` (use `avatar`), or `"pixel"` to use the built-in generated pixel avatar. |
 | `timezone` | IANA name (e.g. `Asia/Kolkata`) for the "Last updated" stamp. |
 | `accent` | Reserved for future accent tweaks. |
 | `engineering_journal` | One-sentence summary shown in the full-width Journal strip. |
@@ -55,6 +57,10 @@ Everything you see is driven by this one file. You never edit Python.
 **Available icon names:** `brain`, `robot`, `bolt`, `code`, `server`,
 `window`, `database`, `wrench`, `globe`, `linkedin`, `mail`, `link`, `pin`,
 `coffee`, `run`, `pen`.
+
+**Avatar image:** drop a PNG at the path in `avatar` (a transparent background
+works best so it blends on both themes). It's embedded into the dashboard SVG as
+base64, so nothing is hosted externally. To go text-only, set `avatar` to `""`.
 
 ---
 
