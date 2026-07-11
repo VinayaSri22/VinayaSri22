@@ -6,7 +6,7 @@ on:
     - cron: "0 1 * * *"
   workflow_dispatch: {}
   push:
-    branches: [main, master]
+    branches: [main, dev]
     paths:
       - "update.py"
       - "config.json"
@@ -33,7 +33,7 @@ jobs:
 
       - name: Build profile (stdlib only, no dependencies)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GIT_TOKEN }}
         run: python update.py
 
       - name: Commit changes

@@ -5,14 +5,12 @@
 
 <div align="center">
 
-<img src="assets/banner.svg" width="636" alt="banner"><img src="assets/github_stats.svg" width="330" alt="github_stats">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/dashboard-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/dashboard-light.svg">
+  <img alt="Vinaya Sri — GitHub profile dashboard" src="assets/dashboard-dark.svg" width="976">
+</picture>
 
-<img src="assets/journal.svg" width="968" alt="journal">
-
-<img src="assets/currently_building.svg" width="478" alt="currently_building"><img src="assets/tech_stack.svg" width="486" alt="tech_stack">
-
-<img src="assets/learning.svg" width="316" alt="learning"><img src="assets/activity.svg" width="330" alt="activity"><img src="assets/connect_quote.svg" width="316" alt="connect_quote">
-
-<img src="assets/footer.svg" width="968" alt="footer">
+[GitHub](https://github.com/VinayaSri22)  ·  [LinkedIn](https://linkedin.com/in/g-vinaya-sri)  ·  [Email](mailto:gangavarapuvinayasri14@gmail.com)
 
 </div>

@@ -7,7 +7,7 @@
   "timezone": "Asia/Kolkata",
   "accent": "#ff3d7f",
 
-  "engineering_journal": "This week I refactored the FastAPI routes for the AI Resume Builder, wired up authentication, and cut PDF generation time roughly in half.",
+  "engineering_journal": "This week I refactored the FastAPI routes for the AI Resume Builder, wired up authentication, and improved the performance of the system.",
 
   "building": [
     {
@@ -41,33 +41,33 @@
 
   "learning": {
     "Python": 90,
-    "Machine Learning": 70,
+    "C++": 90,
     "FastAPI": 60,
     "RAG": 40,
-    "Agents": 30,
-    "MCP": 25
+    "Agents": 80,
+    "MCP": 60
   },
   "learning_quote": "Every day I try to learn, build and ship something that makes me a better engineer.",
 
   "socials": {
-    "linkedin": "linkedin.com/in/vinaya-sri",
-    "email": "vinayasri22@gmail.com",
-    "website": "vinayasri.dev",
+    "linkedin": "linkedin.com/in/g-vinaya-sri",
+    "email": "gangavarapuvinayasri14@gmail.com",
     "location": "Bengaluru, India"
   },
 
-  "footer": "Thanks for visiting! Let's build something amazing together \ud83d\ude80",
+  "footer": "Thanks for visiting! Let's build something amazing together",
 
   "quotes_daily": true,
 
-  "stats_fallback": {
-    "repos": 31,
-    "followers": 52,
-    "following": 39,
-    "stars": 41,
-    "contributions_year": 2184,
-    "commits_all": 6731,
-    "pull_requests": 87,
-    "issues": 36
+  "_comment_sample_stats": "Placeholder numbers used ONLY for local previews (python update.py --sample). CI always fetches live data and never uses these.",
+  "sample_stats": {
+    "repos": 32,
+    "followers": 24,
+    "following": 12,
+    "stars": 18,
+    "contributions_year": 640,
+    "commits_all": 1830,
+    "pull_requests": 26,
+    "issues": 14
   }
 }
