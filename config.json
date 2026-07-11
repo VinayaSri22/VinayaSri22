@@ -7,7 +7,7 @@
   "timezone": "Asia/Kolkata",
   "accent": "#ff3d7f",
 
-  "engineering_journal": "This week I refactored the FastAPI routes for the AI Resume Builder, wired up authentication, and cut PDF generation time roughly in half.",
+  "engineering_journal": "This week I refactored the FastAPI routes for the AI Resume Builder, wired up authentication, and improved the performance of the system.",
 
   "building": [
     {
@@ -41,22 +41,21 @@
 
   "learning": {
     "Python": 90,
-    "Machine Learning": 70,
+    "C++": 90,
     "FastAPI": 60,
     "RAG": 40,
-    "Agents": 30,
-    "MCP": 25
+    "Agents": 80,
+    "MCP": 60
   },
   "learning_quote": "Every day I try to learn, build and ship something that makes me a better engineer.",
 
   "socials": {
-    "linkedin": "linkedin.com/in/vinaya-sri",
-    "email": "vinayasri22@gmail.com",
-    "website": "vinayasri.dev",
+    "linkedin": "linkedin.com/in/g-vinaya-sri",
+    "email": "gangavarapuvinayasri14@gmail.com",
     "location": "Bengaluru, India"
   },
 
-  "footer": "Thanks for visiting! Let's build something amazing together \ud83d\ude80",
+  "footer": "Thanks for visiting! Let's build something amazing together",
 
   "quotes_daily": true,
 

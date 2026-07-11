@@ -34,16 +34,20 @@ DASH_W, DASH_H = 976, 1058
 # Theme palettes.
 # --------------------------------------------------------------------------- #
 DARK = {
-    "bg": "#0a0a0a", "panel": "#101014", "border": "#ff3d7f", "fg": "#f4f4f6",
+    "bg": "#0a0a0a", "panel": "#101014", "border": "#2a2a31", "fg": "#f4f4f6",
     "muted": "#8b909a", "accent": "#ff3d7f", "accent2": "#ff8fb3", "track": "#26262c",
     "skin": "#c9d1d9", "ink": "#0a0a0a", "g0": "#26262c", "g1": "#0e4429",
     "g2": "#006d32", "g3": "#26a641", "g4": "#39d353",
+    "av_fill": "#1c1c24", "av_line": "#cfd3da", "av_face": "#e9ecef",
+    "av_eye": "#14141a", "av_pink": "#ff6a9a",
 }
 LIGHT = {
-    "bg": "#ffffff", "panel": "#fbfbfd", "border": "#ff4d8d", "fg": "#1f2328",
+    "bg": "#ffffff", "panel": "#ffffff", "border": "#e2e4e8", "fg": "#1f2328",
     "muted": "#57606a", "accent": "#d6336c", "accent2": "#c02a5b", "track": "#e6e8eb",
     "skin": "#6a7079", "ink": "#ffffff", "g0": "#ebedf0", "g1": "#9be9a8",
     "g2": "#40c463", "g3": "#30a14e", "g4": "#216e39",
+    "av_fill": "#1f242b", "av_line": "#3a4048", "av_face": "#f3ede8",
+    "av_eye": "#1f242b", "av_pink": "#d6336c",
 }
 PAL = DARK  # active palette; swapped per variant during rendering
 
@@ -113,90 +117,155 @@ def wrap(s, width):
 # --------------------------------------------------------------------------- #
 # Icons (minimal line glyphs in a 20x20 box).
 # --------------------------------------------------------------------------- #
+ICOL = "muted"  # active icon color key
+
+
 def _s(d):
-    return (f'<path d="{d}" fill="none" stroke="{PAL["accent"]}" stroke-width="1.6" '
+    return (f'<path d="{d}" fill="none" stroke="{PAL[ICOL]}" stroke-width="1.6" '
             f'stroke-linecap="round" stroke-linejoin="round"/>')
 
 
 def _f(d):
-    return f'<path d="{d}" fill="{PAL["accent"]}"/>'
+    return f'<path d="{d}" fill="{PAL[ICOL]}"/>'
 
 
 def _icons():
     return {
-        "brain": circle(7, 10, 4.3, stroke="accent") + circle(13, 10, 4.3, stroke="accent")
-                 + line(10, 5.6, 10, 14.4, "accent", 1.6),
-        "robot": f'<rect x="4" y="6" width="12" height="9" rx="2" fill="none" stroke="{PAL["accent"]}" stroke-width="1.6"/>'
-                 + line(10, 2.5, 10, 6, "accent", 1.6) + circle(10, 2.2, 1.3)
-                 + circle(7.6, 10, 1.2) + circle(12.4, 10, 1.2),
+        "brain": circle(7, 10, 4.3, stroke=ICOL) + circle(13, 10, 4.3, stroke=ICOL)
+                 + line(10, 5.6, 10, 14.4, ICOL, 1.6),
+        "robot": f'<rect x="4" y="6" width="12" height="9" rx="2" fill="none" stroke="{PAL[ICOL]}" stroke-width="1.6"/>'
+                 + line(10, 2.5, 10, 6, ICOL, 1.6) + circle(10, 2.2, 1.3, key=ICOL)
+                 + circle(7.6, 10, 1.2, key=ICOL) + circle(12.4, 10, 1.2, key=ICOL),
         "bolt": _f("M11 2 L4 11 L9 11 L8 18 L15 8 L10 8 Z"),
         "code": _s("M7 6 L3 10 L7 14") + _s("M13 6 L17 10 L13 14"),
-        "server": f'<rect x="3" y="4" width="14" height="5" rx="1.5" fill="none" stroke="{PAL["accent"]}" stroke-width="1.6"/>'
-                  + f'<rect x="3" y="11" width="14" height="5" rx="1.5" fill="none" stroke="{PAL["accent"]}" stroke-width="1.6"/>'
-                  + circle(6, 6.5, 1) + circle(6, 13.5, 1),
-        "window": f'<rect x="3" y="4" width="14" height="12" rx="1.5" fill="none" stroke="{PAL["accent"]}" stroke-width="1.6"/>'
-                  + line(3, 8, 17, 8, "accent", 1.6) + circle(6, 6, 0.9),
-        "database": f'<ellipse cx="10" cy="5" rx="6" ry="2.4" fill="none" stroke="{PAL["accent"]}" stroke-width="1.6"/>'
+        "server": f'<rect x="3" y="4" width="14" height="5" rx="1.5" fill="none" stroke="{PAL[ICOL]}" stroke-width="1.6"/>'
+                  + f'<rect x="3" y="11" width="14" height="5" rx="1.5" fill="none" stroke="{PAL[ICOL]}" stroke-width="1.6"/>'
+                  + circle(6, 6.5, 1, key=ICOL) + circle(6, 13.5, 1, key=ICOL),
+        "window": f'<rect x="3" y="4" width="14" height="12" rx="1.5" fill="none" stroke="{PAL[ICOL]}" stroke-width="1.6"/>'
+                  + line(3, 8, 17, 8, ICOL, 1.6) + circle(6, 6, 0.9, key=ICOL),
+        "database": f'<ellipse cx="10" cy="5" rx="6" ry="2.4" fill="none" stroke="{PAL[ICOL]}" stroke-width="1.6"/>'
                     + _s("M4 5 V15 c0 1.3 2.7 2.4 6 2.4 s6 -1.1 6 -2.4 V5")
                     + _s("M4 10 c0 1.3 2.7 2.4 6 2.4 s6 -1.1 6 -2.4"),
         "wrench": _s("M14.5 3.5 a3.4 3.4 0 0 0 -4.4 4.4 L4 14 l2 2 6.1 -6.1 a3.4 3.4 0 0 0 4.4 -4.4 l-2.1 2.1 -1.9 -1.9 Z"),
-        "globe": circle(10, 10, 7, stroke="accent")
-                 + f'<ellipse cx="10" cy="10" rx="3" ry="7" fill="none" stroke="{PAL["accent"]}" stroke-width="1.6"/>'
-                 + line(3, 10, 17, 10, "accent", 1.6),
-        "linkedin": f'<rect x="3" y="3" width="14" height="14" rx="2.5" fill="none" stroke="{PAL["accent"]}" stroke-width="1.6"/>'
-                    + circle(6.4, 6.6, 1.1) + f'<rect x="5.5" y="8.8" width="1.8" height="5.4" fill="{PAL["accent"]}"/>'
+        "globe": circle(10, 10, 7, stroke=ICOL)
+                 + f'<ellipse cx="10" cy="10" rx="3" ry="7" fill="none" stroke="{PAL[ICOL]}" stroke-width="1.6"/>'
+                 + line(3, 10, 17, 10, ICOL, 1.6),
+        "linkedin": f'<rect x="3" y="3" width="14" height="14" rx="2.5" fill="none" stroke="{PAL[ICOL]}" stroke-width="1.6"/>'
+                    + circle(6.4, 6.6, 1.1, key=ICOL) + f'<rect x="5.5" y="8.8" width="1.8" height="5.4" fill="{PAL[ICOL]}"/>'
                     + _f("M9.6 14.2 V8.8 h1.7 v.8 c.4-.6 1-.9 1.9-.9 1.4 0 2.3 .9 2.3 2.8 v2.7 h-1.8 v-2.6 c0-.8-.3-1.3-1-1.3 -.7 0-1 .5-1 1.3 v2.6 Z"),
-        "mail": f'<rect x="3" y="5" width="14" height="10" rx="1.8" fill="none" stroke="{PAL["accent"]}" stroke-width="1.6"/>'
+        "mail": f'<rect x="3" y="5" width="14" height="10" rx="1.8" fill="none" stroke="{PAL[ICOL]}" stroke-width="1.6"/>'
                 + _s("M3.6 6.2 L10 11 L16.4 6.2"),
         "link": _s("M9 11 a3 3 0 0 1 0 -4 l1.5 -1.5 a3 3 0 0 1 4 4 L13 11")
                 + _s("M11 9 a3 3 0 0 1 0 4 l-1.5 1.5 a3 3 0 0 1 -4 -4 L7 9"),
         "pin": _s("M10 2.5 a5 5 0 0 0 -5 5 c0 3.6 5 9 5 9 s5 -5.4 5 -9 a5 5 0 0 0 -5 -5 Z")
-               + circle(10, 7.2, 1.7, stroke="accent"),
-        "pen": _s("M4 16 l1 -3 8 -8 2 2 -8 8 -3 1 Z") + line(11.5, 5.5, 13.5, 7.5, "accent", 1.6),
+               + circle(10, 7.2, 1.7, stroke=ICOL),
+        "pen": _s("M4 16 l1 -3 8 -8 2 2 -8 8 -3 1 Z") + line(11.5, 5.5, 13.5, 7.5, ICOL, 1.6),
     }
 
 
-def icon(name, x, y, scale=1.0):
+def icon(name, x, y, scale=1.0, color="muted"):
+    global ICOL
+    ICOL = color
     glyph = _icons().get(name, _icons()["code"])
+    ICOL = "muted"
     return f'<g transform="translate({x},{y}) scale({scale})">{glyph}</g>'
 
 
 # --------------------------------------------------------------------------- #
-# Pixel-art avatar: girl with an open laptop (20 columns wide).
+# Pixel-art avatar: a girl with long hair + hoodie, built geometrically so an
+# outline can be auto-generated (keeps it legible on both dark and light bg).
+# Fill codes: h=hair/hoodie, f=face, e=eye/mouth, z=zipper, p=pink fleck.
 # --------------------------------------------------------------------------- #
-AVATAR = [
-    "      hhhhhhhh      ",
-    "    hhhhhhhhhhhh    ",
-    "   hhhhhhhhhhhhhh   ",
-    "  hhhhffffffffhhhh  ",
-    "  hhhffffffffffhhh  ",
-    "  hhhffeffffeffhhh  ",
-    "  hhhffffffffffhhh  ",
-    "  hhhfffeeeefffhhh  ",
-    "  hhhffffffffffhhh  ",
-    "  hhhhffffffffhhhh  ",
-    "  hhh  ffffff  hhh  ",
-    "   bbbbbbbbbbbbbb   ",
-    "  bbbbbbbbbbbbbbbb  ",
-    "  bbllllllllllllbb  ",
-    "  bllkkkkkkkkkkllb  ",
-    "  bllkkkkkkkkkkllb  ",
-    "  bbllllllllllllbb  ",
-    " llllllllllllllllll ",
-]
-PIX = {"h": "accent", "f": "skin", "e": "ink", "b": "accent2", "l": "muted", "k": "accent"}
+AV_W, AV_H = 26, 32
+_AV_COLOR = {"h": "av_fill", "f": "av_face", "e": "av_eye", "z": "av_pink", "p": "av_pink"}
 
 
-def avatar(x, y, px=8):
+def _avatar_grid():
+    g = [[" "] * AV_W for _ in range(AV_H)]
+    cx = 12.5
+
+    def fill_ellipse(ex, ey, rx, ry, ch, only_empty=False, replace=None):
+        for yy in range(AV_H):
+            for xx in range(AV_W):
+                if ((xx - ex) / rx) ** 2 + ((yy - ey) / ry) ** 2 <= 1:
+                    if only_empty and g[yy][xx] != " ":
+                        continue
+                    if replace is not None and g[yy][xx] != replace:
+                        continue
+                    g[yy][xx] = ch
+
+    # hair mass (behind), then hoodie, then face on top
+    fill_ellipse(cx, 12, 10.5, 11.5, "h")
+    # long hair drapes down the sides
+    for yy in range(11, 27):
+        span = 10 - max(0, (yy - 20)) * 0.5
+        for xx in range(AV_W):
+            if abs(xx - cx) > span - 3 and abs(xx - cx) <= span:
+                g[yy][xx] = "h"
+    # hoodie / shoulders (trapezoid, capped so it doesn't fill the whole width)
+    for yy in range(22, AV_H):
+        half = min(11.5, 5.5 + (yy - 22) * 1.25)
+        for xx in range(AV_W):
+            if abs(xx - cx) <= half:
+                g[yy][xx] = "h"
+    # face
+    fill_ellipse(cx, 14, 6.4, 8.0, "f", replace="h")
+    # bangs: turn upper face back into hair down to the brow line
+    for yy in range(AV_H):
+        for xx in range(AV_W):
+            if g[yy][xx] == "f" and yy < 9:
+                g[yy][xx] = "h"
+    # neck
+    for yy in range(21, 23):
+        for xx in range(AV_W):
+            if abs(xx - cx) <= 2.5:
+                g[yy][xx] = "f"
+
+    def block(x0, y0, w, h, ch):
+        for yy in range(y0, y0 + h):
+            for xx in range(x0, x0 + w):
+                if 0 <= yy < AV_H and 0 <= xx < AV_W and g[yy][xx] not in (" ",):
+                    g[yy][xx] = ch
+
+    block(9, 12, 2, 2, "e")    # left eye
+    block(15, 12, 2, 2, "e")   # right eye
+    for xx in range(10, 16):   # smile
+        g[17][xx] = "e"
+    g[16][10] = "e"
+    g[16][15] = "e"
+    g[15][8] = "p"             # cheek blush
+    g[15][17] = "p"
+    # open-hoodie collar (subtle pink V) + center zipper
+    for i in range(3):
+        if 0 <= 22 + i < AV_H:
+            if g[22 + i][11 - i] == "h":
+                g[22 + i][11 - i] = "p"
+            if g[22 + i][13 + i] == "h":
+                g[22 + i][13 + i] = "p"
+    for yy in range(25, AV_H):
+        g[yy][12] = "z"
+    for fx, fy in ((7, 3), (17, 2), (19, 6), (6, 6)):  # pink hair flecks
+        if g[fy][fx] == "h":
+            g[fy][fx] = "p"
+    return g
+
+
+def avatar(x, y, px=6):
+    g = _avatar_grid()
     out = [f'<g transform="translate({x},{y})">']
-    for r, row in enumerate(AVATAR):
-        for c, ch in enumerate(row):
-            key = PIX.get(ch)
-            if key:
-                out.append(f'<rect x="{c*px}" y="{r*px}" width="{px}" height="{px}" fill="{PAL[key]}"/>')
-    for sx, sy, s in ((-16, 30, 5), (150, 18, 6), (138, 108, 4)):
-        out.append(f'<g transform="translate({sx},{sy})">'
-                   + line(0, -s, 0, s, "accent2", 1.6) + line(-s, 0, s, 0, "accent2", 1.6) + "</g>")
+    # auto outline: empty cells 4-adjacent to a filled cell
+    for r in range(AV_H):
+        for c in range(AV_W):
+            if g[r][c] != " ":
+                continue
+            if any(0 <= r + dr < AV_H and 0 <= c + dc < AV_W and g[r + dr][c + dc] not in (" ",)
+                   for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                out.append(f'<rect x="{c*px}" y="{r*px}" width="{px}" height="{px}" fill="{PAL["av_line"]}"/>')
+    for r in range(AV_H):
+        for c in range(AV_W):
+            ch = g[r][c]
+            if ch != " ":
+                out.append(f'<rect x="{c*px}" y="{r*px}" width="{px}" height="{px}" fill="{PAL[_AV_COLOR[ch]]}"/>')
     out.append("</g>")
     return "".join(out)
 
@@ -352,8 +421,8 @@ def p_banner(cfg):
     chips = cfg.get("hero_chips", [])
     if chips:
         p.append(icon("pin", 30, 188, 0.85))
-        p.append(text(54, 202, "  •  ".join(chips), key="muted", size=12))
-    p.append(avatar(416, 40, px=8))
+        p.append(text(54, 202, "  •  ".join(chips), key="muted", size=11))
+    p.append(avatar(432, 26, px=6))
     return "".join(p), w, h
 
 

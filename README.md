@@ -11,6 +11,6 @@
   <img alt="Vinaya Sri — GitHub profile dashboard" src="assets/dashboard-dark.svg" width="976">
 </picture>
 
-[GitHub](https://github.com/VinayaSri22)  ·  [LinkedIn](https://linkedin.com/in/vinaya-sri)  ·  [Email](mailto:vinayasri22@gmail.com)  ·  [Website](https://vinayasri.dev)
+[GitHub](https://github.com/VinayaSri22)  ·  [LinkedIn](https://linkedin.com/in/g-vinaya-sri)  ·  [Email](mailto:gangavarapuvinayasri14@gmail.com)
 
 </div>
