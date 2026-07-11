@@ -7,6 +7,10 @@
   "timezone": "Asia/Kolkata",
   "accent": "#ff3d7f",
 
+  "_comment_avatar": "Path to an avatar image (embedded into the hero). Set to null / \"\" to remove the girl entirely. Set avatar_style to \"pixel\" to use the generated pixel avatar instead.",
+  "avatar": "assets/avatar.png",
+  "avatar_style": "image",
+
   "engineering_journal": "This week I refactored the FastAPI routes for the AI Resume Builder, wired up authentication, and improved the performance of the system.",
 
   "building": [
