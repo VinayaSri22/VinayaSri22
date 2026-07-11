@@ -1,0 +1,73 @@
+{
+  "github_username": "VinayaSri22",
+  "name": "Vinaya Sri",
+  "role": "Senior R&D Engineer @ Synopsys",
+  "tagline": "Building AI tools and performance systems\nthat solve real-world problems.",
+  "hero_chips": ["Bengaluru, India", "Coffee + Code", "Training for 10K"],
+  "timezone": "Asia/Kolkata",
+  "accent": "#ff3d7f",
+
+  "engineering_journal": "This week I refactored the FastAPI routes for the AI Resume Builder, wired up authentication, and cut PDF generation time roughly in half.",
+
+  "building": [
+    {
+      "icon": "brain",
+      "name": "AI Resume Builder",
+      "desc": "AI-powered system that converts resumes into\nATS-friendly LaTeX templates.",
+      "tags": ["Python", "LaTeX", "AI"]
+    },
+    {
+      "icon": "robot",
+      "name": "PAAW",
+      "desc": "Personal AI assistant with MCP integration,\ngraph memory and local LLM support.",
+      "tags": ["Python", "FastAPI", "MCP"]
+    },
+    {
+      "icon": "bolt",
+      "name": "Performance Engineering",
+      "desc": "Optimizing enterprise diagnostic workflows \u2014\nreduced memory & disk usage by 90%.",
+      "tags": ["C++", "Linux", "Profiling"]
+    }
+  ],
+
+  "tech_stack": [
+    { "icon": "code", "label": "Languages", "values": ["C++", "Python", "TypeScript", "SQL"] },
+    { "icon": "server", "label": "Backend", "values": ["FastAPI", "Node.js"] },
+    { "icon": "window", "label": "Frontend", "values": ["React", "Tailwind CSS"] },
+    { "icon": "database", "label": "Databases", "values": ["PostgreSQL", "MongoDB"] },
+    { "icon": "wrench", "label": "Tools", "values": ["Docker", "Git", "Linux"] },
+    { "icon": "globe", "label": "AI/ML", "values": ["Transformers", "LangChain", "FAISS"] }
+  ],
+
+  "learning": {
+    "Python": 90,
+    "Machine Learning": 70,
+    "FastAPI": 60,
+    "RAG": 40,
+    "Agents": 30,
+    "MCP": 25
+  },
+  "learning_quote": "Every day I try to learn, build and ship something that makes me a better engineer.",
+
+  "socials": {
+    "linkedin": "linkedin.com/in/vinaya-sri",
+    "email": "vinayasri22@gmail.com",
+    "website": "vinayasri.dev",
+    "location": "Bengaluru, India"
+  },
+
+  "footer": "Thanks for visiting! Let's build something amazing together \ud83d\ude80",
+
+  "quotes_daily": true,
+
+  "stats_fallback": {
+    "repos": 31,
+    "followers": 52,
+    "following": 39,
+    "stars": 41,
+    "contributions_year": 2184,
+    "commits_all": 6731,
+    "pull_requests": 87,
+    "issues": 36
+  }
+}
